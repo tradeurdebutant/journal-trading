@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Journal de Trading</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/recharts@2/umd/Recharts.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  html, body, #root { margin: 0; padding: 0; min-height: 100%; background: #0A0C10; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const {
+  ResponsiveContainer, AreaChart, Area, BarChart, Bar, Cell, PieChart, Pie,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+} = Recharts;
+const { useState, useEffect, useMemo, useCallback } = React;
+
+
+function Plus({ size = 16 }) { return <span style={{ fontSize: size, lineHeight: 1, display: "inline-block" }}>+</span>; }
+function Trash2({ size = 16 }) { return <span style={{ fontSize: size, lineHeight: 1, display: "inline-block" }}>&#128465;</span>; }
+function X({ size = 16 }) { return <span style={{ fontSize: size, lineHeight: 1, display: "inline-block" }}>&#10005;</span>; }
+function Settings2({ size = 16 }) { return <span style={{ fontSize: size, lineHeight: 1, display: "inline-block" }}>&#9881;</span>; }
+function TrendingUp({ size = 16 }) { return <span style={{ fontSize: size, lineHeight: 1, display: "inline-block" }}>&#8599;</span>; }
+function TrendingDown({ size = 16 }) { return <span style={{ fontSize: size, lineHeight: 1, display: "inline-block" }}>&#8600;</span>; }
+function Minus({ size = 16 }) { return <span style={{ fontSize: size, lineHeight: 1, display: "inline-block" }}>&#8722;</span>; }
+function Upload({ size = 16 }) { return <span style={{ fontSize: size, lineHeight: 1, display: "inline-block" }}>&#8593;</span>; }
+function AlertCircle({ size = 16 }) { return <span style={{ fontSize: size, lineHeight: 1, display: "inline-block" }}>&#9888;</span>; }
+function CheckCircle2({ size = 16 }) { return <span style={{ fontSize: size, lineHeight: 1, display: "inline-block" }}>&#10003;</span>; }
+
+
+
+const STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+  .jt-root {
+    --bg-void: #0A0C10;
+    --bg-panel: #12151B;
+    --bg-panel-raised: #181C24;
+    --border: #262B35;
+    --border-soft: #1D212A;
+    --gold: #C9A227;
+    --gold-bright: #E5C158;
+    --green: #35C980;
+    --red: #EF5350;
+    --text-primary: #E9E7E0;
+    --text-muted: #8A8F99;
+    --text-dim: #565B65;
+    font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+    background: var(--bg-void);
+    color: var(--text-primary);
+    min-height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .jt-root * { box-sizing: border-box; }
+  .jt-mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; }
+
+  .jt-header {
+    padding: 28px 28px 0 28px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .jt-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .jt-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .jt-title small {
+    color: var(--gold);
+    font-weight: 500;
+    font-size: 13px;
+    display: block;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .jt-actions { display: flex; gap: 8px; }
+  .jt-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 14px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--bg-panel-raised);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .jt-btn:hover { border-color: var(--gold); }
+  .jt-btn-primary {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: #14110A;
+  }
+  .jt-btn-primary:hover { background: var(--gold-bright); border-color: var(--gold-bright); }
+  .jt-btn-ghost { background: transparent; }
+
+  .jt-ticker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    margin: 0 -28px;
+    padding: 0 28px;
+    overflow-x: auto;
+  }
+  .jt-tick {
+    padding: 14px 22px 18px 0;
+    margin-right: 22px;
+    border-right: 1px solid var(--border-soft);
+    min-width: 108px;
+  }
+  .jt-tick:last-child { border-right: none; }
+  .jt-tick-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--text-dim);
+    margin-bottom: 5px;
+  }
+  .jt-tick-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 19px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .jt-up { color: var(--green); }
+  .jt-down { color: var(--red); }
+  .jt-flat { color: var(--text-muted); }
+
+  .jt-body { padding: 24px 28px 40px 28px; display: flex; flex-direction: column; gap: 22px; }
+
+  .jt-panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .jt-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .jt-panel-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+  .jt-panel-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+  .jt-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 780px) { .jt-grid-2 { grid-template-columns: 1fr; } }
+
+  .jt-form {
+    background: var(--bg-panel-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 700px) { .jt-form { grid-template-columns: 1fr 1fr; } }
+  .jt-field { display: flex; flex-direction: column; gap: 5px; }
+  .jt-field label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .jt-field input, .jt-field select, .jt-field textarea {
+    background: var(--bg-void);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13.5px;
+  }
+  .jt-field select { font-family: 'Space Grotesk', sans-serif; }
+  .jt-field input:focus, .jt-field select:focus, .jt-field textarea:focus {
+    outline: none; border-color: var(--gold);
+  }
+  .jt-field-span2 { grid-column: span 2; }
+  .jt-field-span3 { grid-column: span 3; }
+  @media (max-width: 700px) { .jt-field-span3 { grid-column: span 2; } }
+
+  .jt-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 780px) { .jt-stats-row { grid-template-columns: 1fr 1fr; } }
+  .jt-stat-card {
+    background: var(--bg-panel-raised);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .jt-stat-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .jt-stat-value { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600; }
+
+  .jt-insight {
+    display: flex;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border-left: 3px solid var(--border);
+    background: var(--bg-panel-raised);
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .jt-insight-strength { border-left-color: var(--green); }
+  .jt-insight-weakness { border-left-color: var(--red); }
+  .jt-insight-icon { font-size: 15px; line-height: 1.5; }
+
+  .jt-table-wrap { overflow-x: auto; }
+  table.jt-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.jt-table th {
+    text-align: left;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  table.jt-table td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--border-soft);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+  }
+  table.jt-table tr:hover td { background: var(--bg-panel-raised); }
+  .jt-tag {
+    display: inline-block;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11.5px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+  .jt-del-btn {
+    background: transparent; border: none; color: var(--text-dim); cursor: pointer; padding: 4px;
+  }
+  .jt-del-btn:hover { color: var(--red); }
+
+  .jt-empty {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--text-muted);
+  }
+  .jt-empty-glyph { font-size: 34px; color: var(--gold); margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; }
+
+  .jt-tooltip {
+    background: var(--bg-panel-raised);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 11px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+
+  .jt-modal-overlay {
+    position: fixed; inset: 0; background: rgba(6,7,9,0.7);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 60px 16px; z-index: 50; overflow-y: auto;
+  }
+  .jt-settings-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+
+  .jt-import-modal { width: 620px; max-width: 100%; }
+  .jt-import-textarea {
+    width: 100%;
+    min-height: 160px;
+    background: var(--bg-void);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 12px;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    resize: vertical;
+  }
+  .jt-import-textarea:focus { outline: none; border-color: var(--gold); }
+  .jt-import-help {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.55;
+    margin-bottom: 12px;
+  }
+  .jt-import-help code {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg-panel-raised);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--gold-bright);
+    font-size: 12px;
+  }
+  .jt-import-preview {
+    margin-top: 14px;
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .jt-import-preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg-panel-raised);
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+  .jt-import-preview-body { max-height: 220px; overflow-y: auto; }
+  .jt-import-row-error {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 7px 14px;
+    font-size: 12px;
+    color: var(--red);
+    border-top: 1px solid var(--border-soft);
+  }
+  .jt-import-row-ok {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border-soft);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .jt-import-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+`;
+
+const ASSET_PRESETS = ["XAUUSD (Or)", "EURUSD", "GBPUSD", "US30", "Autre"];
+const EMOTIONS = ["Confiant", "Neutre", "Impatient", "Stressé", "Fatigué", "Revanche"];
+const WEEKDAY_ORDER = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+const WEEKDAY_LOOKUP = { 1: "Lundi", 2: "Mardi", 3: "Mercredi", 4: "Jeudi", 5: "Vendredi", 6: "Samedi", 0: "Dimanche" };
+
+const TRADES_KEY = "journal_trading:trades";
+const SETTINGS_KEY = "journal_trading:settings";
+
+const fmtMoney = (n) => {
+  const sign = n > 0 ? "+" : n < 0 ? "−" : "";
+  return `${sign}$${Math.abs(n).toFixed(2)}`;
+};
+const fmtPct = (n) => `${n.toFixed(0)}%`;
+const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const DIRECTION_ALIASES = {
+  achat: "achat", buy: "achat", long: "achat",
+  vente: "vente", sell: "vente", short: "vente",
+};
+
+function parseDateFlexible(raw) {
+  const s = raw.trim();
+  if (!s) return null;
+  // ISO yyyy-mm-dd
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  // dd/mm/yyyy or dd-mm-yyyy
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  const d = new Date(s);
+  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  return null;
+}
+
+function parsePnlFlexible(raw) {
+  let s = String(raw).trim();
+  if (!s) return NaN;
+  s = s.replace(/[\$€\s]/g, "");
+  // handle formats like 1.234,56 or 1,234.56 or 12,50
+  if (/,\d{1,2}$/.test(s) && s.includes(",")) {
+    s = s.replace(/\./g, "").replace(",", ".");
+  } else {
+    s = s.replace(/,/g, "");
+  }
+  const n = parseFloat(s);
+  return n;
+}
+
+function detectDelimiter(line) {
+  // Priorité tabulation (copié-collé natif Excel/Sheets, toujours fiable),
+  // puis point-virgule (export CSV européen). La virgule seule est ambiguë
+  // car elle sert aussi de séparateur décimal (ex: 12,50) donc on l'évite :
+  // mieux vaut coller directement depuis Excel/Sheets (tabulations).
+  if (line.includes("\t")) return "\t";
+  if (line.includes(";")) return ";";
+  if (line.includes(",")) return ",";
+  return null;
+}
+
+function normalizeHeader(h) {
+  return h.trim().toLowerCase().replace(/[^a-z0-9%]/g, "");
+}
+
+// Reconnaît un jeu large d'en-têtes (français, anglais, style eToro : Date, Instrument,
+// Direction, Leverage, Investment($), OpenRate, CloseRate, NetProfit($), PnL%, Setup...)
+const HEADER_ALIASES = {
+  date: ["date", "opendate", "dateouverture"],
+  asset: ["instrument", "actif", "asset", "symbol", "symbole", "pair", "paire"],
+  direction: ["direction", "sens", "side", "type"],
+  leverage: ["leverage", "levier"],
+  investment: ["investment", "investissement", "montant", "amount", "mise"],
+  openRate: ["openrate", "prixouverture", "entry", "entryprice"],
+  closeRate: ["closerate", "prixcloture", "prixclôture", "exit", "exitprice"],
+  pnl: ["netprofit", "profit", "resultat", "résultat", "pnl", "pl", "gain", "netprofit$"],
+  pnlPct: ["pnl%", "pl%", "pnlpct", "performance", "rendement"],
+  setup: ["setup", "strategie", "stratégie", "strategy"],
+  emotion: ["emotion", "état", "etat", "humeur", "ressenti"],
+  notes: ["notes", "note", "commentaire", "comment", "remarque"],
+};
+
+function mapHeaderRow(cells) {
+  const norm = cells.map(normalizeHeader);
+  const colIndex = {};
+  norm.forEach((h, i) => {
+    for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
+      if (colIndex[field] !== undefined) continue;
+      if (aliases.some((a) => normalizeHeader(a) === h)) colIndex[field] = i;
+    }
+  });
+  return colIndex;
+}
+
+function parseImportText(raw) {
+  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  const rows = [];
+  const errors = [];
+  if (lines.length === 0) return { rows, errors };
+
+  const delim = detectDelimiter(lines[0]);
+  const splitLine = (l) => (delim ? l.split(delim).map((c) => c.trim()) : [l.trim()]);
+
+  const firstCells = splitLine(lines[0]);
+  let colIndex = mapHeaderRow(firstCells);
+  const hasHeader = colIndex.date !== undefined && (colIndex.pnl !== undefined || colIndex.pnlPct !== undefined);
+
+  let dataLines;
+  if (hasHeader) {
+    dataLines = lines.slice(1);
+  } else {
+    // pas d'en-tête reconnu : on suppose l'ordre par défaut date, actif, direction, résultat, setup, émotion, notes
+    colIndex = { date: 0, asset: 1, direction: 2, pnl: 3, setup: 4, emotion: 5, notes: 6 };
+    dataLines = lines;
+  }
+
+  dataLines.forEach((line, idx) => {
+    const rawLineNum = hasHeader ? idx + 2 : idx + 1;
+    const cells = splitLine(line);
+
+    const get = (field) => (colIndex[field] !== undefined ? cells[colIndex[field]] : undefined);
+
+    const dateRaw = get("date");
+    const assetRaw = get("asset");
+    const directionRaw = get("direction");
+    let pnlCell = get("pnl");
+    const pnlPctRaw = get("pnlPct");
+    const setupRaw = get("setup");
+    const emotionRaw = get("emotion");
+    const notesRaw = get("notes");
+
+    if (cells.length < 2 || !dateRaw) {
+      errors.push({ line: rawLineNum, raw: line, reason: "ligne incomplète" });
+      return;
+    }
+
+    const parsedDate = parseDateFlexible(dateRaw);
+    if (!parsedDate) {
+      errors.push({ line: rawLineNum, raw: line, reason: `date illisible : "${dateRaw}"` });
+      return;
+    }
+
+    // si pas de colonne résultat en $ mais une colonne pourcentage + investissement, on calcule
+    let pnl = pnlCell !== undefined ? parsePnlFlexible(pnlCell) : NaN;
+    if (Number.isNaN(pnl) && pnlPctRaw !== undefined) {
+      const pct = parsePnlFlexible(pnlPctRaw);
+      const invest = colIndex.investment !== undefined ? parsePnlFlexible(get("investment")) : NaN;
+      if (!Number.isNaN(pct) && !Number.isNaN(invest)) {
+        pnl = (pct / 100) * invest;
+      } else if (!Number.isNaN(pct)) {
+        pnl = pct; // dernier recours : on prend le pourcentage tel quel
+      }
+    }
+
+    if (Number.isNaN(pnl)) {
+      errors.push({ line: rawLineNum, raw: line, reason: "résultat illisible ou manquant" });
+      return;
+    }
+
+    const asset = (assetRaw || "").trim();
+    if (!asset) {
+      errors.push({ line: rawLineNum, raw: line, reason: "actif manquant" });
+      return;
+    }
+
+    let direction = "achat";
+    if (directionRaw) {
+      const key = directionRaw.trim().toLowerCase();
+      direction = DIRECTION_ALIASES[key] || "achat";
+    }
+
+    const leverageRaw = get("leverage");
+    const investmentRaw = get("investment");
+    const openRateRaw = get("openRate");
+    const closeRateRaw = get("closeRate");
+    const leverage = leverageRaw !== undefined ? parsePnlFlexible(leverageRaw) : undefined;
+    const investment = investmentRaw !== undefined ? parsePnlFlexible(investmentRaw) : undefined;
+    const openRateVal = openRateRaw !== undefined ? parsePnlFlexible(openRateRaw) : undefined;
+    const closeRateVal = closeRateRaw !== undefined ? parsePnlFlexible(closeRateRaw) : undefined;
+
+    rows.push({
+      id: uid(),
+      date: parsedDate,
+      asset,
+      direction,
+      pnl,
+      setup: (setupRaw || "").trim(),
+      emotion: EMOTIONS.includes((emotionRaw || "").trim()) ? emotionRaw.trim() : "",
+      notes: (notesRaw || "").trim(),
+      leverage: Number.isNaN(leverage) ? undefined : leverage,
+      investment: Number.isNaN(investment) ? undefined : investment,
+      openRate: Number.isNaN(openRateVal) ? undefined : openRateVal,
+      closeRate: Number.isNaN(closeRateVal) ? undefined : closeRateVal,
+    });
+  });
+
+  return { rows, errors };
+}
+
+function emptyForm() {
+  return {
+    date: new Date().toISOString().slice(0, 10),
+    asset: "XAUUSD (Or)",
+    assetCustom: "",
+    direction: "achat",
+    pnl: "",
+    setup: "",
+    emotion: "Neutre",
+    notes: "",
+  };
+}
+
+function groupStats(trades, keyFn) {
+  const groups = {};
+  trades.forEach((t) => {
+    const k = keyFn(t);
+    if (!k) return;
+    if (!groups[k]) groups[k] = { key: k, count: 0, wins: 0, totalPnl: 0 };
+    groups[k].count += 1;
+    groups[k].totalPnl += t.pnl;
+    if (t.pnl > 0) groups[k].wins += 1;
+  });
+  return Object.values(groups).map((g) => ({
+    ...g,
+    winRate: (g.wins / g.count) * 100,
+    avgPnl: g.totalPnl / g.count,
+  }));
+}
+
+function computeInsights(trades, byAsset, byDay, bySetup, byEmotion, overallWinRate) {
+  const MIN_N = 3;
+  const strengths = [];
+  const weaknesses = [];
+
+  const pick = (rows, labelFn) => {
+    const eligible = rows.filter((r) => r.count >= MIN_N);
+    if (eligible.length < 2) return null;
+    const sorted = [...eligible].sort((a, b) => b.winRate - a.winRate);
+    const best = sorted[0];
+    const worst = sorted[sorted.length - 1];
+    if (best.key === worst.key) return null;
+    return { best, worst, labelFn };
+  };
+
+  const assetPick = pick(byAsset, (k) => k);
+  if (assetPick) {
+    strengths.push(
+      `Sur ${assetPick.best.key}, votre taux de réussite atteint ${fmtPct(assetPick.best.winRate)} (${assetPick.best.count} trades, ${fmtMoney(assetPick.best.totalPnl)} au total).`
+    );
+    if (assetPick.worst.winRate < 50 || assetPick.worst.totalPnl < 0) {
+      weaknesses.push(
+        `Sur ${assetPick.worst.key}, le taux de réussite tombe à ${fmtPct(assetPick.worst.winRate)} (${assetPick.worst.count} trades, ${fmtMoney(assetPick.worst.totalPnl)}).`
+      );
+    }
+  }
+
+  const dayPick = pick(byDay, (k) => k);
+  if (dayPick) {
+    strengths.push(
+      `Le ${dayPick.best.key} est votre meilleur jour : ${fmtPct(dayPick.best.winRate)} de réussite sur ${dayPick.best.count} trades.`
+    );
+    if (dayPick.worst.winRate < 50) {
+      weaknesses.push(
+        `Le ${dayPick.worst.key} est plus difficile : seulement ${fmtPct(dayPick.worst.winRate)} de réussite sur ${dayPick.worst.count} trades.`
+      );
+    }
+  }
+
+  const setupPick = pick(bySetup, (k) => k);
+  if (setupPick) {
+    strengths.push(
+      `Le setup « ${setupPick.best.key} » est votre plus fiable : ${fmtPct(setupPick.best.winRate)} de réussite.`
+    );
+    if (setupPick.worst.winRate < 50) {
+      weaknesses.push(
+        `Le setup « ${setupPick.worst.key} » sous-performe : ${fmtPct(setupPick.worst.winRate)} de réussite seulement.`
+      );
+    }
+  }
+
+  const emoPick = pick(byEmotion, (k) => k);
+  if (emoPick) {
+    if (emoPick.best.winRate >= 50) {
+      strengths.push(
+        `Quand vous tradez « ${emoPick.best.key.toLowerCase()} », votre réussite grimpe à ${fmtPct(emoPick.best.winRate)}.`
+      );
+    }
+    if (emoPick.worst.winRate < overallWinRate - 10 || emoPick.worst.key === "Revanche") {
+      weaknesses.push(
+        `L'état « ${emoPick.worst.key.toLowerCase()} » coûte cher : ${fmtPct(emoPick.worst.winRate)} de réussite, contre ${fmtPct(overallWinRate)} en moyenne.`
+      );
+    }
+  }
+
+  // Détection de "revenge trading" : performance après une perte
+  const sorted = [...trades].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+  const afterLoss = [];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i - 1].pnl < 0) afterLoss.push(sorted[i]);
+  }
+  if (afterLoss.length >= MIN_N) {
+    const winsAfterLoss = afterLoss.filter((t) => t.pnl > 0).length;
+    const wrAfterLoss = (winsAfterLoss / afterLoss.length) * 100;
+    if (wrAfterLoss < overallWinRate - 15) {
+      weaknesses.push(
+        `Juste après une perte, votre taux de réussite chute à ${fmtPct(wrAfterLoss)} (contre ${fmtPct(overallWinRate)} habituellement) — signe possible de trading de vengeance : reprenez votre souffle avant de rentrer en position.`
+      );
+    } else if (wrAfterLoss > overallWinRate + 10) {
+      strengths.push(
+        `Vous encaissez bien les pertes : votre réussite reste à ${fmtPct(wrAfterLoss)} juste après un trade perdant.`
+      );
+    }
+  }
+
+  return { strengths, weaknesses };
+}
+
+function StatCard({ label, value, tone }) {
+  return (
+    <div className="jt-stat-card">
+      <div className="jt-stat-label">{label}</div>
+      <div className={`jt-stat-value jt-mono ${tone ? `jt-${tone}` : ""}`}>{value}</div>
+    </div>
+  );
+}
+
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload || !payload.length) return null;
+  return (
+    <div className="jt-tooltip">
+      <div style={{ color: "#8A8F99", marginBottom: 4 }}>{label}</div>
+      {payload.map((p, i) => (
+        <div key={i} style={{ color: p.color || "#E9E7E0" }}>
+          {p.name}: {typeof p.value === "number" ? p.value.toFixed(1) : p.value}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BreakdownChart({ title, sub, rows, order }) {
+  const data = order ? order.filter((k) => rows.some((r) => r.key === k)).map((k) => rows.find((r) => r.key === k)) : rows;
+  if (!data.length) return null;
+  return (
+    <div className="jt-panel">
+      <div className="jt-panel-head">
+        <div>
+          <div className="jt-panel-title">{title}</div>
+          {sub && <div className="jt-panel-sub">{sub}</div>}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={190}>
+        <BarChart data={data} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+          <CartesianGrid stroke="#1D212A" vertical={false} />
+          <XAxis dataKey="key" tick={{ fill: "#8A8F99", fontSize: 11 }} axisLine={{ stroke: "#262B35" }} tickLine={false} />
+          <YAxis tick={{ fill: "#8A8F99", fontSize: 11 }} axisLine={false} tickLine={false} unit="%" />
+          <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(201,162,39,0.06)" }} />
+          <Bar dataKey="winRate" name="Taux de réussite" radius={[4, 4, 0, 0]}>
+            {data.map((d, i) => (
+              <Cell key={i} fill={d.winRate >= 50 ? "#35C980" : "#EF5350"} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function TradingJournal() {
+  const [loading, setLoading] = useState(true);
+  const [trades, setTrades] = useState([]);
+  const [startingCapital, setStartingCapital] = useState(400);
+  const [showForm, setShowForm] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importResult, setImportResult] = useState(null);
+  const [form, setForm] = useState(emptyForm());
+  const [saveError, setSaveError] = useState(false);
+
+  useEffect(() => {
+    try {
+      const t = window.localStorage.getItem(TRADES_KEY);
+      if (t) setTrades(JSON.parse(t));
+    } catch (e) {
+      /* pas de trades enregistrés pour l'instant */
+    }
+    try {
+      const s = window.localStorage.getItem(SETTINGS_KEY);
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (parsed.startingCapital) setStartingCapital(parsed.startingCapital);
+      }
+    } catch (e) {
+      /* réglages par défaut */
+    }
+    setLoading(false);
+  }, []);
+
+  const persistTrades = useCallback((next) => {
+    setTrades(next);
+    try {
+      window.localStorage.setItem(TRADES_KEY, JSON.stringify(next));
+    } catch (e) {
+      setSaveError(true);
+    }
+  }, []);
+
+  const persistSettings = useCallback((capital) => {
+    setStartingCapital(capital);
+    try {
+      window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ startingCapital: capital }));
+    } catch (e) {
+      setSaveError(true);
+    }
+  }, []);
+
+  const addTrade = () => {
+    const pnlNum = parseFloat(String(form.pnl).replace(",", "."));
+    if (Number.isNaN(pnlNum) || !form.date) return;
+    const asset = form.asset === "Autre" ? (form.assetCustom.trim() || "Autre") : form.asset;
+    const newTrade = {
+      id: uid(),
+      date: form.date,
+      asset,
+      direction: form.direction,
+      pnl: pnlNum,
+      setup: form.setup.trim(),
+      emotion: form.emotion,
+      notes: form.notes.trim(),
+    };
+    persistTrades([...trades, newTrade]);
+    setForm(emptyForm());
+    setShowForm(false);
+  };
+
+  const deleteTrade = (id) => {
+    persistTrades(trades.filter((t) => t.id !== id));
+  };
+
+  const deleteAllTrades = () => {
+    persistTrades([]);
+    setConfirmDeleteAll(false);
+  };
+
+  const exportTradesAsText = () => {
+    const header = ["Date", "Instrument", "Direction", "Leverage", "Investment($)", "OpenRate", "CloseRate", "NetProfit($)", "PnL%", "Setup", "Emotion", "Notes"].join("\t");
+    const lines = [...trades]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((t) => [
+        t.date,
+        t.asset,
+        t.direction === "achat" ? "Long" : t.direction === "vente" ? "Short" : t.direction,
+        t.leverage !== undefined ? t.leverage : "",
+        t.investment !== undefined ? t.investment : "",
+        t.openRate !== undefined ? t.openRate : "",
+        t.closeRate !== undefined ? t.closeRate : "",
+        t.pnl,
+        "",
+        t.setup || "",
+        t.emotion || "",
+        t.notes || "",
+      ].join("\t"));
+    return [header, ...lines].join("\n");
+  };
+
+  const runImportPreview = (text) => {
+    setImportText(text);
+    if (!text.trim()) { setImportResult(null); return; }
+    setImportResult(parseImportText(text));
+  };
+
+  const confirmImport = () => {
+    if (!importResult || importResult.rows.length === 0) return;
+    persistTrades([...trades, ...importResult.rows]);
+    setImportText("");
+    setImportResult(null);
+    setShowImport(false);
+  };
+
+  const stats = useMemo(() => {
+    const n = trades.length;
+    if (n === 0) return null;
+    const sorted = [...trades].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+    const wins = trades.filter((t) => t.pnl > 0);
+    const losses = trades.filter((t) => t.pnl < 0);
+    const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
+    const winRate = (wins.length / n) * 100;
+    const grossWin = wins.reduce((s, t) => s + t.pnl, 0);
+    const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+    const profitFactor = grossLoss > 0 ? grossWin / grossLoss : wins.length > 0 ? Infinity : 0;
+    const avgWin = wins.length ? grossWin / wins.length : 0;
+    const avgLoss = losses.length ? grossLoss / losses.length : 0;
+
+    let equity = startingCapital;
+    const equityCurve = [{ label: "Départ", capital: equity }];
+    sorted.forEach((t, i) => {
+      equity += t.pnl;
+      equityCurve.push({ label: t.date, capital: Number(equity.toFixed(2)) });
+    });
+
+    let curStreak = 0;
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const sign = sorted[i].pnl > 0 ? 1 : sorted[i].pnl < 0 ? -1 : 0;
+      if (i === sorted.length - 1) {
+        curStreak = sign;
+      } else {
+        const prevSign = curStreak > 0 ? 1 : curStreak < 0 ? -1 : 0;
+        if (sign === prevSign && sign !== 0) curStreak += sign;
+        else break;
+      }
+    }
+
+    const byAsset = groupStats(trades, (t) => t.asset);
+    const byDay = groupStats(trades, (t) => WEEKDAY_LOOKUP[new Date(t.date + "T00:00:00").getDay()]);
+    const bySetup = groupStats(trades.filter((t) => t.setup), (t) => t.setup);
+    const byEmotion = groupStats(trades, (t) => t.emotion);
+
+    const insights = computeInsights(trades, byAsset, byDay, bySetup, byEmotion, winRate);
+
+    const best = [...trades].sort((a, b) => b.pnl - a.pnl)[0];
+    const worst = [...trades].sort((a, b) => a.pnl - b.pnl)[0];
+
+    return {
+      n, wins, losses, totalPnl, winRate, profitFactor, avgWin, avgLoss,
+      equityCurve, curStreak, byAsset, byDay, bySetup, byEmotion, insights,
+      best, worst, finalCapital: equity,
+      pieData: [
+        { name: "Gagnants", value: wins.length, color: "#35C980" },
+        { name: "Perdants", value: losses.length, color: "#EF5350" },
+      ],
+    };
+  }, [trades, startingCapital]);
+
+  if (loading) {
+    return (
+      <div className="jt-root" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 240 }}>
+        <style>{STYLES}</style>
+        <div className="jt-mono" style={{ color: "#8A8F99" }}>Chargement du journal…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="jt-root">
+      <style>{STYLES}</style>
+
+      <div className="jt-header">
+        <div className="jt-title-row">
+          <div className="jt-title">
+            <small>Journal de trading</small>
+            Suivi de performance
+          </div>
+          <div className="jt-actions">
+            <button className="jt-btn jt-btn-ghost" onClick={() => setShowSettings(true)}>
+              <Settings2 size={15} /> Réglages
+            </button>
+            {trades.length > 0 && (
+              confirmDeleteAll ? (
+                <button
+                  className="jt-btn jt-btn-ghost"
+                  style={{ borderColor: "var(--red)", color: "var(--red)" }}
+                  onClick={deleteAllTrades}
+                  onMouseLeave={() => setConfirmDeleteAll(false)}
+                >
+                  <Trash2 size={15} /> Confirmer la suppression
+                </button>
+              ) : (
+                <button className="jt-btn jt-btn-ghost" onClick={() => setConfirmDeleteAll(true)}>
+                  <Trash2 size={15} /> Tout supprimer
+                </button>
+              )
+            )}
+            <button className="jt-btn jt-btn-ghost" onClick={() => setShowImport(true)}>
+              <Upload size={15} /> Importer
+            </button>
+            <button className="jt-btn jt-btn-primary" onClick={() => setShowForm((v) => !v)}>
+              <Plus size={15} /> Nouveau trade
+            </button>
+          </div>
+        </div>
+
+        {stats && (
+          <div className="jt-ticker">
+            <div className="jt-tick">
+              <div className="jt-tick-label">Capital</div>
+              <div className="jt-tick-value jt-mono">${stats.finalCapital.toFixed(2)}</div>
+            </div>
+            <div className="jt-tick">
+              <div className="jt-tick-label">P&L total</div>
+              <div className={`jt-tick-value jt-mono ${stats.totalPnl > 0 ? "jt-up" : stats.totalPnl < 0 ? "jt-down" : "jt-flat"}`}>
+                {stats.totalPnl > 0 ? <TrendingUp size={15} /> : stats.totalPnl < 0 ? <TrendingDown size={15} /> : <Minus size={15} />}
+                {fmtMoney(stats.totalPnl)}
+              </div>
+            </div>
+            <div className="jt-tick">
+              <div className="jt-tick-label">Taux de réussite</div>
+              <div className="jt-tick-value jt-mono">{fmtPct(stats.winRate)}</div>
+            </div>
+            <div className="jt-tick">
+              <div className="jt-tick-label">Profit factor</div>
+              <div className="jt-tick-value jt-mono">{stats.profitFactor === Infinity ? "∞" : stats.profitFactor.toFixed(2)}</div>
+            </div>
+            <div className="jt-tick">
+              <div className="jt-tick-label">Série en cours</div>
+              <div className={`jt-tick-value jt-mono ${stats.curStreak > 0 ? "jt-up" : stats.curStreak < 0 ? "jt-down" : "jt-flat"}`}>
+                {stats.curStreak === 0 ? "—" : `${stats.curStreak > 0 ? "+" : ""}${stats.curStreak}`}
+              </div>
+            </div>
+            <div className="jt-tick">
+              <div className="jt-tick-label">Trades</div>
+              <div className="jt-tick-value jt-mono">{stats.n}</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="jt-body">
+        {showForm && (
+          <div className="jt-form">
+            <div className="jt-field">
+              <label>Date</label>
+              <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+            </div>
+            <div className="jt-field">
+              <label>Actif</label>
+              <select value={form.asset} onChange={(e) => setForm({ ...form, asset: e.target.value })}>
+                {ASSET_PRESETS.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+            {form.asset === "Autre" && (
+              <div className="jt-field">
+                <label>Précisez l'actif</label>
+                <input type="text" value={form.assetCustom} onChange={(e) => setForm({ ...form, assetCustom: e.target.value })} placeholder="ex: US500" />
+              </div>
+            )}
+            <div className="jt-field">
+              <label>Direction</label>
+              <select value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}>
+                <option value="achat">Achat</option>
+                <option value="vente">Vente</option>
+              </select>
+            </div>
+            <div className="jt-field">
+              <label>Résultat ($)</label>
+              <input type="text" inputMode="decimal" placeholder="ex: 12.50 ou -8" value={form.pnl} onChange={(e) => setForm({ ...form, pnl: e.target.value })} />
+            </div>
+            <div className="jt-field">
+              <label>État émotionnel</label>
+              <select value={form.emotion} onChange={(e) => setForm({ ...form, emotion: e.target.value })}>
+                {EMOTIONS.map((em) => <option key={em} value={em}>{em}</option>)}
+              </select>
+            </div>
+            <div className="jt-field">
+              <label>Setup / stratégie</label>
+              <input type="text" placeholder="ex: croisement DEMA" value={form.setup} onChange={(e) => setForm({ ...form, setup: e.target.value })} />
+            </div>
+            <div className="jt-field jt-field-span2">
+              <label>Notes</label>
+              <input type="text" placeholder="Contexte, ressenti, erreurs…" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            </div>
+            <div className="jt-field-span3" style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button className="jt-btn jt-btn-ghost" onClick={() => { setShowForm(false); setForm(emptyForm()); }}>Annuler</button>
+              <button className="jt-btn jt-btn-primary" onClick={addTrade}>Enregistrer le trade</button>
+            </div>
+          </div>
+        )}
+
+        {!stats ? (
+          <div className="jt-panel jt-empty">
+            <div className="jt-empty-glyph">▲▼</div>
+            <div style={{ fontWeight: 600, marginBottom: 6, color: "#E9E7E0" }}>Aucun trade enregistré</div>
+            <div>Ajoutez votre premier trade pour faire apparaître la courbe de capital et l'analyse de vos points forts et faibles.</div>
+          </div>
+        ) : (
+          <>
+            <div className="jt-panel">
+              <div className="jt-panel-head">
+                <div>
+                  <div className="jt-panel-title">Courbe de capital</div>
+                  <div className="jt-panel-sub">Capital de départ : ${startingCapital.toFixed(2)}</div>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={stats.equityCurve} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#C9A227" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#C9A227" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#1D212A" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: "#565B65", fontSize: 10 }} axisLine={{ stroke: "#262B35" }} tickLine={false} minTickGap={30} />
+                  <YAxis tick={{ fill: "#8A8F99", fontSize: 11 }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Area type="monotone" dataKey="capital" name="Capital" stroke="#E5C158" strokeWidth={2} fill="url(#goldFill)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="jt-grid-2">
+              <div className="jt-panel">
+                <div className="jt-panel-head"><div className="jt-panel-title">Répartition gains / pertes</div></div>
+                <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+                  <ResponsiveContainer width={150} height={150}>
+                    <PieChart>
+                      <Pie data={stats.pieData} dataKey="value" nameKey="name" innerRadius={40} outerRadius={65} paddingAngle={3}>
+                        {stats.pieData.map((d, i) => <Cell key={i} fill={d.color} stroke="none" />)}
+                      </Pie>
+                      <Tooltip content={<ChartTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div><span className="jt-mono" style={{ color: "#35C980", fontWeight: 600 }}>{stats.wins.length}</span> <span style={{ color: "#8A8F99", fontSize: 13 }}>gagnants</span></div>
+                    <div><span className="jt-mono" style={{ color: "#EF5350", fontWeight: 600 }}>{stats.losses.length}</span> <span style={{ color: "#8A8F99", fontSize: 13 }}>perdants</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="jt-panel">
+                <div className="jt-panel-head"><div className="jt-panel-title">Statistiques clés</div></div>
+                <div className="jt-stats-row">
+                  <StatCard label="Gain moyen" value={fmtMoney(stats.avgWin)} tone="up" />
+                  <StatCard label="Perte moyenne" value={fmtMoney(-stats.avgLoss)} tone="down" />
+                  <StatCard label="Meilleur trade" value={stats.best ? fmtMoney(stats.best.pnl) : "—"} tone="up" />
+                  <StatCard label="Pire trade" value={stats.worst ? fmtMoney(stats.worst.pnl) : "—"} tone="down" />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="jt-panel-title" style={{ marginBottom: 12, marginLeft: 2 }}>Analyse — points forts &amp; points faibles</div>
+              <div className="jt-grid-2">
+                <BreakdownChart title="Taux de réussite par jour" rows={stats.byDay} order={WEEKDAY_ORDER} />
+                <BreakdownChart title="Taux de réussite par actif" rows={stats.byAsset} />
+                <BreakdownChart title="Taux de réussite par état émotionnel" rows={stats.byEmotion} />
+                <BreakdownChart title="Taux de réussite par setup" sub={stats.bySetup.length ? undefined : "Ajoutez un setup à vos trades pour voir ce graphique"} rows={stats.bySetup} />
+              </div>
+            </div>
+
+            {(stats.insights.strengths.length > 0 || stats.insights.weaknesses.length > 0) && (
+              <div className="jt-grid-2">
+                <div className="jt-panel">
+                  <div className="jt-panel-head"><div className="jt-panel-title">Points forts</div></div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {stats.insights.strengths.length === 0 && <div style={{ color: "#565B65", fontSize: 13 }}>Pas encore assez de données pour dégager un point fort net.</div>}
+                    {stats.insights.strengths.map((s, i) => (
+                      <div key={i} className="jt-insight jt-insight-strength"><span className="jt-insight-icon">▲</span><span>{s}</span></div>
+                    ))}
+                  </div>
+                </div>
+                <div className="jt-panel">
+                  <div className="jt-panel-head"><div className="jt-panel-title">Points faibles</div></div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {stats.insights.weaknesses.length === 0 && <div style={{ color: "#565B65", fontSize: 13 }}>Pas encore assez de données pour dégager un point faible net.</div>}
+                    {stats.insights.weaknesses.map((s, i) => (
+                      <div key={i} className="jt-insight jt-insight-weakness"><span className="jt-insight-icon">▼</span><span>{s}</span></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="jt-panel">
+              <div className="jt-panel-head"><div className="jt-panel-title">Journal des trades</div></div>
+              <div className="jt-table-wrap">
+                <table className="jt-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th><th>Actif</th><th>Sens</th><th>Levier</th><th>Investi</th><th>Ouverture</th><th>Cloture</th><th>Résultat</th><th>Setup</th><th>État</th><th>Notes</th><th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...trades].sort((a, b) => b.date.localeCompare(a.date)).map((t) => (
+                      <tr key={t.id}>
+                        <td>{t.date}</td>
+                        <td>{t.asset}</td>
+                        <td style={{ textTransform: "capitalize" }}>{t.direction}</td>
+                        <td>{t.leverage !== undefined ? `x${t.leverage}` : "—"}</td>
+                        <td>{t.investment !== undefined ? `$${t.investment.toFixed(2)}` : "—"}</td>
+                        <td>{t.openRate !== undefined ? t.openRate : "—"}</td>
+                        <td>{t.closeRate !== undefined ? t.closeRate : "—"}</td>
+                        <td className={t.pnl > 0 ? "jt-up" : t.pnl < 0 ? "jt-down" : "jt-flat"}>{fmtMoney(t.pnl)}</td>
+                        <td>{t.setup ? <span className="jt-tag">{t.setup}</span> : "—"}</td>
+                        <td>{t.emotion ? t.emotion : "—"}</td>
+                        <td style={{ fontFamily: "'Space Grotesk', sans-serif", maxWidth: 220, whiteSpace: "normal" }}>{t.notes || "—"}</td>
+                        <td><button className="jt-del-btn" onClick={() => deleteTrade(t.id)}><Trash2 size={14} /></button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+
+        {saveError && (
+          <div style={{ color: "#EF5350", fontSize: 12.5 }}>
+            La sauvegarde a rencontré un problème — vos derniers changements pourraient ne pas être conservés.
+          </div>
+        )}
+      </div>
+
+      {showSettings && (
+        <div className="jt-modal-overlay" onClick={() => setShowSettings(false)}>
+          <div className="jt-panel" style={{ width: 340, maxWidth: "100%" }} onClick={(e) => e.stopPropagation()}>
+            <div className="jt-panel-head">
+              <div className="jt-panel-title">Réglages</div>
+              <button className="jt-del-btn" onClick={() => setShowSettings(false)}><X size={16} /></button>
+            </div>
+            <div className="jt-settings-row">
+              <div className="jt-field" style={{ flex: 1 }}>
+                <label>Capital de départ ($)</label>
+                <input
+                  type="number"
+                  value={startingCapital}
+                  onChange={(e) => persistSettings(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: "#565B65", marginTop: 10 }}>
+              Sert de point de départ pour la courbe de capital.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showImport && (
+        <div className="jt-modal-overlay" onClick={() => { setShowImport(false); }}>
+          <div className="jt-panel jt-import-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="jt-panel-head">
+              <div>
+                <div className="jt-panel-title">Importer des trades</div>
+              </div>
+              <button className="jt-del-btn" onClick={() => setShowImport(false)}><X size={16} /></button>
+            </div>
+
+            <div className="jt-import-help">
+              Copiez vos lignes depuis Excel ou Google Sheets et collez-les ci-dessous. Colonnes attendues, dans l'ordre :{" "}
+              <code>date, actif, sens (facultatif), résultat, setup (facultatif), état émotionnel (facultatif), notes (facultatif)</code>.
+              La première ligne peut être un en-tête, elle sera détectée et ignorée automatiquement.
+            </div>
+
+            <textarea
+              className="jt-import-textarea"
+              placeholder={"Exemple :\n2026-01-05\tXAUUSD\tachat\t12.50\tcroisement DEMA\tConfiant\tbonne entrée\n2026-01-06\tEURUSD\tvente\t-8\t\tStressé\t"}
+              value={importText}
+              onChange={(e) => runImportPreview(e.target.value)}
+            />
+
+            {importResult && (
+              <div className="jt-import-preview">
+                <div className="jt-import-preview-head">
+                  <span>
+                    {importResult.rows.length} trade{importResult.rows.length === 1 ? "" : "s"} prêt{importResult.rows.length === 1 ? "" : "s"} à importer
+                    {importResult.errors.length > 0 ? ` — ${importResult.errors.length} ligne${importResult.errors.length === 1 ? "" : "s"} ignorée${importResult.errors.length === 1 ? "" : "s"}` : ""}
+                  </span>
+                </div>
+                <div className="jt-import-preview-body">
+                  {importResult.rows.slice(0, 8).map((r) => (
+                    <div key={r.id} className="jt-import-row-ok">
+                      <CheckCircle2 size={13} color="#35C980" />
+                      <span>{r.date} · {r.asset} · {r.direction} · {fmtMoney(r.pnl)}</span>
+                    </div>
+                  ))}
+                  {importResult.rows.length > 8 && (
+                    <div className="jt-import-row-ok" style={{ color: "#565B65" }}>
+                      … et {importResult.rows.length - 8} autre{importResult.rows.length - 8 === 1 ? "" : "s"}
+                    </div>
+                  )}
+                  {importResult.errors.map((e, i) => (
+                    <div key={i} className="jt-import-row-error">
+                      <AlertCircle size={13} style={{ marginTop: 1, flexShrink: 0 }} />
+                      <span>Ligne {e.line} ignorée — {e.reason}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="jt-import-actions">
+              <button className="jt-btn jt-btn-ghost" onClick={() => { setShowImport(false); setImportText(""); setImportResult(null); }}>Annuler</button>
+              <button
+                className="jt-btn jt-btn-primary"
+                disabled={!importResult || importResult.rows.length === 0}
+                style={(!importResult || importResult.rows.length === 0) ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+                onClick={confirmImport}
+              >
+                Importer {importResult && importResult.rows.length > 0 ? `${importResult.rows.length} trade${importResult.rows.length === 1 ? "" : "s"}` : ""}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<TradingJournal />);
+</script>
+</body>
+</html>
